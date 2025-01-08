@@ -1,5 +1,7 @@
 const TelegramApi = require('node-telegram-bot-api')
-const {gameOptions, againOptions} = require ('./options')
+const { gameOptions, againOptions } = require('./options')
+const sequelize = require('./db');
+const UserModel = require('./models');
 const axios = require('axios');
 const token = '8141777064:AAEDCEeg4j-fX_nkk5osPZ59Ptm9HeP0qNQ'
 
@@ -86,14 +88,14 @@ const getSelectedCurrencyRates = async (chatId, username) => {
 };
 const formatDate = (unixTimestamp) => {
     const date = new Date(unixTimestamp * 1000); // Преобразуем секунды в миллисекунды
-    const options = { 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit', 
-        timeZoneName: 'short' 
+    const options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZoneName: 'short',
     };
     return date.toLocaleString('ru-RU', options); // Локализация для русского языка
 };
@@ -103,15 +105,22 @@ const startGame = async (chatId) => {
     await bot.sendMessage(chatId, 'Сейчас я загадаю цифру от 0 до 9, а ты должен угадать')
     const randomNumber = Math.floor(Math.random() * 10)
     chats[chatId] = randomNumber;
-    await bot.sendMessage(chatId, 'Отгадывай 🥹', gameOptions )
+    await bot.sendMessage(chatId, 'Отгадывай 🥹', gameOptions)
 }
-const start = () => {
+const start = async () => {
+    try {
+        await sequelize.authenticate()
+        await sequelize.sync()
+    } catch (e) {
+        console.log('Подключение к бд сломалось', e)
+    }
 
     bot.setMyCommands([
         { command: '/start', description: 'Приветствие' },
         { command: '/info', description: 'Получить информацию о пользователе' },
         { command: '/game', description: 'Угадай цифру' },
         { command: '/exchange', description: 'Курс денег' },
+        { command: '/gameinfo', description: 'Сколько попыток было' },
     ])
 
     bot.on('message', async msg => {
@@ -121,43 +130,56 @@ const start = () => {
         const username = msg.from.username || msg.from.first_name;
         const formattedDate = formatDate(msg.date);
 
-        // Выводим в консоль
-        console.log(`Запрос от пользователя: ${msg.from.first_name} (@${msg.from.username})`);
-        console.log(`Дата и время запроса: ${formattedDate}`);
-        if (text === '/start') {
-            await bot.sendSticker(chatId, `https://t.me/sssassssssasas/1429`)
-            return bot.sendMessage(chatId, `Добро пожаловать в мой телеграм бот`)
-        }
-        if (text === '/info') {
-            if (msg.from.username) {
-                await bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name}`);
-                return bot.sendMessage(chatId, `Никнейм: @${msg.from.username}`)
-            } else {
-                await bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name}`);
-                return bot.sendMessage(chatId, 'У тебя никнейма нет.');
+        try {
+            // Выводим в консоль
+            console.log(`Запрос от пользователя: ${msg.from.first_name} (@${msg.from.username})`);
+            console.log(`Дата и время запроса: ${formattedDate}`);
+            if (text === '/start') {
+                await UserModel.create({chatId})
+                await bot.sendSticker(chatId, `https://t.me/sssassssssasas/1429`)
+                return bot.sendMessage(chatId, `Добро пожаловать в мой телеграм бот`)
             }
+            if (text === '/info') {
+                if (msg.from.username) {
+                    await bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name}`);
+                    return bot.sendMessage(chatId, `Никнейм: @${msg.from.username}`)
+                } else {
+                    await bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name}`);
+                    return bot.sendMessage(chatId, 'У тебя никнейма нет.');
+                }
+            }
+            if (text === '/game') {
+                return startGame(chatId);
+            }
+            if (text === '/gameinfo') {
+                const user = await UserModel.findOne({chatId})
+                return bot.sendMessage(chatId,`в игре у тебя правильных ответов ${user.right}, неправильных ${user.wrong}`)
+            }
+            if (text === '/exchange') {
+                return getSelectedCurrencyRates(chatId, username);
+            }
+            return bot.sendMessage(chatId, 'Я не понимаю попробуй еще раз!')
+        } catch (e) {
+            return bot.sendMessage(chatId, 'Произошла какая то ошибка!');
         }
-        if (text === '/game') {
-            return startGame(chatId);
-        }
-        if (text === '/exchange') {
-            return getSelectedCurrencyRates(chatId, username);
-        }
-        return bot.sendMessage(chatId, 'Я не понимаю попробуй еще раз!')
     })
-    
+
     bot.on('callback_query', async msg => {
         const data = msg.data;
-        const chatId =  msg.message.chat.id;
-        if(data === '/again'){
+        const chatId = msg.message.chat.id;
+        if (data === '/again') {
             return startGame(chatId);
         }
-        if(data == chats[chatId]){
+        const user = await UserModel.findOne({chatId})
+        if (data == chats[chatId]) {
+            user.right +=1;
             await bot.sendSticker(chatId, `https://t.me/sssassssssasas/1430`)
-            return bot.sendMessage(chatId, `Поздравляю, ты отгадал цифру ${chats[chatId]}`, againOptions)
-        } else{ 
-            return bot.sendMessage(chatId, `К сожалению ты не угадал, бот загадал цифру ${chats[chatId]}`, againOptions)
+            await bot.sendMessage(chatId, `Поздравляю, ты отгадал цифру ${chats[chatId]}`, againOptions)
+        } else {
+            user.wrong +=1;
+            await bot.sendMessage(chatId, `К сожалению ты не угадал, бот загадал цифру ${chats[chatId]}`, againOptions)
         }
+        await user.save();
     })
 }
 start()
