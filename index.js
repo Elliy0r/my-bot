@@ -6,6 +6,8 @@ const token = '8141777064:AAEDCEeg4j-fX_nkk5osPZ59Ptm9HeP0qNQ'
 const bot = new TelegramApi(token, { polling: true })
 const API_URL = 'https://cbu.uz/ru/arkhiv-kursov-valyut/json/';
 
+const tomorrowApiKey = 'DZGXSbC9zCwzoNn6quBk7wAO4x4nXVFC';
+
 
 const chats = {}
 // const getUsdRate = async (chatId) => {
@@ -105,13 +107,65 @@ const startGame = async (chatId) => {
     chats[chatId] = randomNumber;
     await bot.sendMessage(chatId, 'Отгадывай 🥹', gameOptions)
 }
+const getWeather = async (latitude, longitude) => {
+    const apiUrl = 'https://api.tomorrow.io/v4/weather/forecast';
+
+    try {
+        const response = await axios.get(apiUrl, {
+            params: {
+                location: `${latitude},${longitude}`,
+                apikey: tomorrowApiKey,
+                timesteps: '1d', // Прогноз на день
+                units: 'metric', // Единицы измерения в Цельсиях
+            },
+        });
+
+        const forecast = response.data.timelines.daily[0]; // Дневной прогноз
+        const temp = forecast.values.temperatureAvg || 'нет данных';
+
+        return `Средняя температура: ${temp}°C`;
+    } catch (error) {
+        console.error('Ошибка запроса к Tomorrow.io:', error.response?.data || error.message);
+        return 'Не удалось получить данные о погоде. Попробуйте позже.';
+    }
+};
+
+// Обработка команды /weather
+bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+    if (msg.location) {
+        const { latitude, longitude } = msg.location;
+
+        const weather = await getWeather(latitude, longitude);
+        bot.sendMessage(chatId, weather);
+    } else if (!msg.text.startsWith('/')) {
+        const input = msg.text.trim();
+
+        // Проверяем, ввёл ли пользователь координаты вручную
+        if (/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(input)) {
+            const [latitude, longitude] = input.split(',').map(Number);
+
+            // Получаем погоду для введённых координат
+            const weather = await getWeather(latitude, longitude);
+            bot.sendMessage(chatId, weather);
+        } else {
+            // Если сообщение не является командой, геолокацией или корректным форматом координат
+            bot.sendMessage(
+                chatId,
+                'Пожалуйста, отправьте свою геолокацию или введите координаты в формате: широта,долгота (например: 42.3478,-71.0466).'
+            );
+        }
+    }
+});
+// Обработка сообщений для получения геолокации
 const start = () => {
 
     bot.setMyCommands([
         { command: '/start', description: 'Приветствие' },
         { command: '/info', description: 'Получить информацию о пользователе' },
         { command: '/game', description: 'Угадай цифру' },
-        { command: '/exchange', description: 'Курс денег' }
+        { command: '/exchange', description: 'Курс денег' },
+        { command: '/weather', description: 'Погода' }
     ])
 
     bot.on('message', async msg => {
@@ -143,7 +197,11 @@ const start = () => {
         if (text === '/exchange') {
             return getSelectedCurrencyRates(chatId, username);
         }
-        return bot.sendMessage(chatId, 'Я не понимаю попробуй еще раз!')
+        if (text === '/weather') {
+            return bot.sendMessage(chatId, 'Отправьте геолокацию чтобы узнать среднюю температуру');
+            //await bot.sendMessage(chatId, 'или введите Широту и Долготу как на примере ниже без пробелов! ');
+            //await bot.sendMessage(chatId, '42.3478,-71.0466');
+        }
     })
 
     bot.on('callback_query', async msg => {
@@ -159,6 +217,7 @@ const start = () => {
             return bot.sendMessage(chatId, `К сожалению ты не угадал, бот загадал цифру ${chats[chatId]}`, againOptions)
         }
     })
+
 }
 start()
 
