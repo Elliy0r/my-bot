@@ -1,8 +1,9 @@
 const TelegramApi = require('node-telegram-bot-api')
 const { gameOptions, againOptions } = require('./options')
 const axios = require('axios');
+const sequelize = require('./db');
+const UserModel = require('./models')
 const token = '8141777064:AAEDCEeg4j-fX_nkk5osPZ59Ptm9HeP0qNQ'
-
 const bot = new TelegramApi(token, { polling: true })
 const API_URL = 'https://cbu.uz/ru/arkhiv-kursov-valyut/json/';
 
@@ -49,7 +50,7 @@ const startGame = async (chatId) => {
     const randomNumber = Math.floor(Math.random() * 10)
     chats[chatId] = randomNumber;
     await bot.sendMessage(chatId, 'Отгадывай 🥹', gameOptions)
-    
+
     setTimeout(() => {
         if (chats[chatId]) {
             delete chats[chatId];
@@ -59,21 +60,21 @@ const startGame = async (chatId) => {
 }
 const getWeather = async (latitude, longitude) => {
     const apiUrl = 'https://api.tomorrow.io/v4/weather/forecast';
-    let result = ''; 
+    let result = '';
     try {
         const response = await axios.get(apiUrl, {
             params: {
                 location: `${latitude},${longitude}`,
                 apikey: tomorrowApiKey,
-                timesteps: '1d', 
-                units: 'metric', 
+                timesteps: '1d',
+                units: 'metric',
             },
         });
 
-        const forecast = response.data.timelines.daily[0]; 
+        const forecast = response.data.timelines.daily[0];
         const temp = forecast.values.temperatureAvg || 'нет данных';
 
-        result =  `Средняя температура: ${temp}°C`;
+        result = `Средняя температура: ${temp}°C`;
     } catch (error) {
         console.error('Ошибка запроса к Tomorrow.io:', error.response?.data || error.message);
         result = 'Не удалось получить данные о погоде. Попробуйте позже.';
@@ -101,7 +102,13 @@ bot.on('message', async (msg) => {
         }
     }
 });
-const start = () => {
+const start = async () => {
+    try{
+        await sequelize.authenticate()
+        await sequelize.sync()
+    } catch (e){
+        console.log("Подключение к бд сломалось");
+    }
     bot.setMyCommands([
         { command: '/start', description: 'Приветствие' },
         { command: '/info', description: 'Получить информацию о пользователе' },
@@ -113,7 +120,29 @@ const start = () => {
         console.log(msg)
         const text = msg.text;
         const chatId = msg.chat.id;
+        const messageId = msg.message_id;
+        const isBot = msg.from.is_bot;
         const username = msg.from.username || msg.from.first_name;
+
+        const isPremium = msg.from.is_premium || false;
+        const requestDate = formatDate(msg.date);
+        try {
+            await UserModel.upsert({
+                user_id: msg.from.id, // уникальный идентификатор пользователя
+                username: msg.from.username || null,
+                first_name: msg.from.first_name || null,
+                last_name: msg.from.last_name || null,
+                language_code: msg.from.language_code || null,
+                chat_id: chatId,
+                is_premium: isPremium,
+                message_id: messageId,
+                request_date: requestDate,
+                text: text || null,
+                is_bot:isBot
+            });
+        } catch (error) {
+            console.error('Ошибка при сохранении пользователя:', error.message);
+        }
         const formattedDate = formatDate(msg.date);
         console.log(`Запрос от пользователя: ${msg.from.first_name} (@${msg.from.username})`);
         console.log(`Дата и время запроса: ${formattedDate}`);
@@ -124,7 +153,7 @@ const start = () => {
         if (text === '/info') {
             if (msg.from.username) {
                 await bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name}`);
-                return bot.sendMessage(chatId, `Никнейм: @${msg.from.username}`)
+                await bot.sendMessage(chatId, `Никнейм: @${msg.from.username}`);
             } else {
                 await bot.sendMessage(chatId, `Тебя зовут ${msg.from.first_name}`);
                 return bot.sendMessage(chatId, 'У тебя никнейма нет.');
@@ -148,11 +177,11 @@ const start = () => {
         }
         if (data == chats[chatId]) {
             await bot.sendSticker(chatId, `https://t.me/sssassssssasas/1430`)
-            return bot.sendMessage(chatId, `Поздравляю, ты отгадал цифру ${chats[chatId]}`, againOptions)
+            await bot.sendMessage(chatId, `Поздравляю, ты отгадал цифру ${chats[chatId]}`, againOptions)
         } else {
             await bot.sendMessage(chatId, `К сожалению ты не угадал, бот загадал цифру ${chats[chatId]}`, againOptions)
-        } 
-             delete chats[chatId];
+        }
+         delete chats[chatId];
     })
 }
 start()
