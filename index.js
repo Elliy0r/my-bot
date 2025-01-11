@@ -88,19 +88,21 @@ bot.on('message', async (msg) => {
 
         const weather = await getWeather(latitude, longitude);
         bot.sendMessage(chatId, weather);
-    } else if (!msg.text.startsWith('/')) {
-        const input = msg.text.trim();
-        if (/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(input)) {
-            const [latitude, longitude] = input.split(',').map(Number);
-            const weather = await getWeather(latitude, longitude);
-            bot.sendMessage(chatId, weather);
-        } else {
-            bot.sendMessage(
-                chatId,
-                'Пожалуйста, отправьте свою геолокацию или введите координаты в формате: широта,долгота (например: 42.3478,-71.0466).'
-            );
-        }
-    }
+    } 
+    // else if (!msg.text.startsWith('/')) {
+    //     const input = msg.text.trim();
+    //     if (/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(input)) {
+    //         const [latitude, longitude] = input.split(',').map(Number);
+    //         const weather = await getWeather(latitude, longitude);
+    //         bot.sendMessage(chatId, weather);
+    //     } 
+    //     else {
+    //         bot.sendMessage(
+    //             chatId,
+    //             'Пожалуйста, отправьте свою геолокацию или введите координаты в формате: широта,долгота (например: 42.3478,-71.0466).'
+    //         );
+    //     }
+    // }
 });
 const start = async () => {
     try {
@@ -166,9 +168,19 @@ const start = async () => {
         const formattedDate = formatDate(msg.date);
         console.log(`Запрос от пользователя: ${msg.from.first_name} (@${msg.from.username})`);
         console.log(`Дата и время запроса: ${formattedDate}`);
+        const mainMenu = {
+            reply_markup: {
+                keyboard: [
+                        ['Угадай цифру 🎲', 'Курсы валют 💸'],
+                        ['Погода ⛅️']
+                ],
+                resize_keyboard: true,
+                one_time_keyboard: false 
+            }
+        };
         if (text === '/start') {
             await bot.sendSticker(chatId, `https://t.me/sssassssssasas/1429`)
-            return bot.sendMessage(chatId, `Добро пожаловать в мой телеграм бот`)
+            return bot.sendMessage(chatId, `Добро пожаловать в мой телеграм бот 🫠`, mainMenu)
         }
         if (text === '/info') {
             if (msg.from.username) {
@@ -188,21 +200,103 @@ const start = async () => {
         if (text === '/weather') {
             return bot.sendMessage(chatId, 'Отправьте геолокацию чтобы узнать среднюю температуру');
         }
+        if (text === 'Угадай цифру 🎲') {
+            return startGame(chatId);
+        }
+        if (text === 'Курсы валют 💸') {
+            return getSelectedCurrencyRates(chatId, username);
+        }
+        if (text === 'Погода ⛅️') {
+            return bot.sendMessage(chatId, 'Отправьте геолокацию чтобы узнать среднюю температуру');
+        }
     })
-    bot.on('callback_query', async msg => {
-        const data = msg.data;
-        const chatId = msg.message.chat.id;
+    // bot.on('callback_query', async msg => {
+    //     const data = msg.data;
+    //     const chatId = msg.message.chat.id;
+    //     if (data === '/again') {
+    //         return startGame(chatId);
+    //     }
+    //     if (data == chats[chatId]) {
+    //         await bot.sendSticker(chatId, `https://t.me/sssassssssasas/1430`)
+    //         await bot.sendMessage(chatId, `Поздравляю, ты отгадал цифру ${chats[chatId]}`, againOptions)
+    //     } else {
+    //         await bot.sendMessage(chatId, `К сожалению ты не угадал, бот загадал цифру ${chats[chatId]}`, againOptions)
+    //     }
+    //     delete chats[chatId];
+    // })
+    // bot.on('callback_query', async callbackQuery => {
+    //     const { data, message } = callbackQuery;
+    //     const chatId = message.chat.id;
+    
+    //     // Логика для обработки inline кнопок
+    //     if (data === '/info') {
+    //         if (message.from.username) {
+    //             await bot.sendMessage(chatId, `Тебя зовут ${message.from.first_name}`);
+    //             await bot.sendMessage(chatId, `Никнейм: @${message.from.username}`);
+    //         } else {
+    //             await bot.sendMessage(chatId, `Тебя зовут ${message.from.first_name}`);
+    //             return bot.sendMessage(chatId, 'У тебя никнейма нет.');
+    //         }
+    //     }
+    
+    //     if (data === '/game') {
+    //         return startGame(chatId);
+    //     }
+    
+    //     if (data === '/exchange') {
+    //         return getSelectedCurrencyRates(chatId, message.from.username);
+    //     }
+    
+    //     if (data === '/weather') {
+    //         return bot.sendMessage(chatId, 'Отправьте геолокацию чтобы узнать среднюю температуру');
+    //     }
+    
+    //     // Обработка ответа на игру (угадал или не угадал цифру)
+    //     if (data === '/again') {
+    //         return startGame(chatId);
+    //     }
+    
+    //     if (data == chats[chatId]) {
+    //         await bot.sendSticker(chatId, `https://t.me/sssassssssasas/1430`);
+    //         await bot.sendMessage(chatId, `Поздравляю, ты отгадал цифру ${chats[chatId]}`, againOptions);
+    //     } else {
+    //         await bot.sendMessage(chatId, `К сожалению, ты не угадал. Бот загадал цифру ${chats[chatId]}`, againOptions);
+    //     }
+    
+    //     delete chats[chatId]; // Очистка данных для текущего чата
+    // });
+    bot.on('callback_query', async callbackQuery => {
+        const { data, message } = callbackQuery;
+        const chatId = message.chat.id;
+
+        // Обработка callback'ов для различных кнопок
+
+        if (data === '/game') {
+            return startGame(chatId);
+        }
+
+        if (data === '/exchange') {
+            return getSelectedCurrencyRates(chatId, message.from.username);
+        }
+
+        if (data === '/weather') {
+            return bot.sendMessage(chatId, 'Отправьте геолокацию чтобы узнать среднюю температуру');
+        }
+
+        // Логика для ответа на игру
         if (data === '/again') {
             return startGame(chatId);
         }
+
         if (data == chats[chatId]) {
-            await bot.sendSticker(chatId, `https://t.me/sssassssssasas/1430`)
-            await bot.sendMessage(chatId, `Поздравляю, ты отгадал цифру ${chats[chatId]}`, againOptions)
+            await bot.sendSticker(chatId, `https://t.me/sssassssssasas/1430`);
+            await bot.sendMessage(chatId, `Поздравляю, ты отгадал цифру ${chats[chatId]}`, againOptions);
         } else {
-            await bot.sendMessage(chatId, `К сожалению ты не угадал, бот загадал цифру ${chats[chatId]}`, againOptions)
+            await bot.sendMessage(chatId, `К сожалению, ты не угадал. Бот загадал цифру ${chats[chatId]}`, againOptions);
         }
-        delete chats[chatId];
-    })
+
+        delete chats[chatId]; // Очистка данных для текущего чата
+    });
 }
 start()
 
