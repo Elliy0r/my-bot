@@ -52,8 +52,11 @@ const TelegramRequest = sequelize.define('TelegramRequest', {
     allowNull: false,
   },
   text: {
-    type: DataTypes.TEXT,
+    type: DataTypes.STRING,
     allowNull: true,
+  },
+  location: {
+    type: DataTypes.STRING, allowNull: true,
   },
   entities: {
     type: DataTypes.JSONB,

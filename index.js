@@ -103,10 +103,10 @@ bot.on('message', async (msg) => {
     }
 });
 const start = async () => {
-    try{
+    try {
         await sequelize.authenticate()
         await sequelize.sync()
-    } catch (e){
+    } catch (e) {
         console.log("Подключение к бд сломалось");
     }
     bot.setMyCommands([
@@ -123,23 +123,43 @@ const start = async () => {
         const messageId = msg.message_id;
         const isBot = msg.from.is_bot;
         const username = msg.from.username || msg.from.first_name;
-
         const isPremium = msg.from.is_premium || false;
         const requestDate = formatDate(msg.date);
+        const locations = msg.location;
         try {
-            await UserModel.upsert({
-                user_id: msg.from.id, // уникальный идентификатор пользователя
-                username: msg.from.username || null,
-                first_name: msg.from.first_name || null,
-                last_name: msg.from.last_name || null,
-                language_code: msg.from.language_code || null,
-                chat_id: chatId,
-                is_premium: isPremium,
-                message_id: messageId,
-                request_date: requestDate,
-                text: text || null,
-                is_bot:isBot
-            });
+            if (locations) {
+                const { latitude, longitude } = locations;
+                const location = `${latitude},${longitude}`;
+
+                await UserModel.upsert({
+                    user_id: msg.from.id,
+                    username: msg.from.username || null,
+                    first_name: msg.from.first_name || null,
+                    last_name: msg.from.last_name || null,
+                    language_code: msg.from.language_code || null,
+                    chat_id: chatId,
+                    is_premium: isPremium,
+                    message_id: messageId,
+                    request_date: requestDate,
+                    text: text || null,
+                    location: location,
+                    is_bot: isBot,
+                });
+            } else {
+                await UserModel.upsert({
+                    user_id: msg.from.id,
+                    username: msg.from.username || null,
+                    first_name: msg.from.first_name || null,
+                    last_name: msg.from.last_name || null,
+                    language_code: msg.from.language_code || null,
+                    chat_id: chatId,
+                    is_premium: isPremium,
+                    message_id: messageId,
+                    request_date: requestDate,
+                    text: text || null,
+                    is_bot: isBot,
+                });
+            }
         } catch (error) {
             console.error('Ошибка при сохранении пользователя:', error.message);
         }
@@ -181,7 +201,7 @@ const start = async () => {
         } else {
             await bot.sendMessage(chatId, `К сожалению ты не угадал, бот загадал цифру ${chats[chatId]}`, againOptions)
         }
-         delete chats[chatId];
+        delete chats[chatId];
     })
 }
 start()
