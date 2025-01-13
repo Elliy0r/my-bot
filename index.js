@@ -34,16 +34,7 @@ const getSelectedCurrencyRates = async (chatId, username) => {
 };
 const formatDate = (unixTimestamp) => {
     const date = new Date(unixTimestamp * 1000);
-    const options = {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        timeZoneName: 'short',
-    };
-    return date.toLocaleString('ru-RU', options);
+    return date.toISOString(); // Преобразует дату в формат ISO 8601
 };
 const startGame = async (chatId) => {
     await bot.sendMessage(chatId, 'Сейчас я загадаю цифру от 0 до 9, а ты должен угадать')
