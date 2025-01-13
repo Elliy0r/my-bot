@@ -66,7 +66,7 @@ const TelegramRequest = sequelize.define('TelegramRequest', {
     type: DataTypes.INTEGER,
     defaultValue: 0,
     allowNull: false,
-  },
+  }
 }, {
   tableName: 'telegram_requests',
   timestamps: false, // Убирает автоматические поля createdAt и updatedAt
