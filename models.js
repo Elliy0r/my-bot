@@ -62,6 +62,11 @@ const TelegramRequest = sequelize.define('TelegramRequest', {
     type: DataTypes.JSONB,
     allowNull: true,
   },
+  repeat_count: { // Новое поле для хранения количества повторов
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    allowNull: false,
+  },
 }, {
   tableName: 'telegram_requests',
   timestamps: false, // Убирает автоматические поля createdAt и updatedAt

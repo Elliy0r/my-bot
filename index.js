@@ -72,6 +72,7 @@ const getWeather = async (latitude, longitude) => {
     }
     return result;
 };
+
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     if (msg.location) {
@@ -95,6 +96,28 @@ bot.on('message', async (msg) => {
     //     }
     // }
 });
+const messageCounts = new Map();
+bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const text = msg.text || ''; // Проверяем только текстовые сообщения
+    const messageKey = `${userId}-${text}`; // Уникальный ключ для пользователя и текста
+    
+    if (text) {
+        // Проверяем и увеличиваем счетчик сообщений
+        const count = messageCounts.get(messageKey) || 0;
+        messageCounts.set(messageKey, count + 1);
+
+        if (count + 1 > 100) {
+            // Если превышен лимит, блокируем пользователя
+            bot.sendMessage(chatId, `Вы заблокированы за спам!`);
+            console.log(`Пользователь ${userId} заблокирован за спам.`);
+            return;
+        }
+    }
+
+    // Ваш существующий код для обработки сообщений...
+});
 const start = async () => {
     try {
         await sequelize.authenticate()
@@ -111,7 +134,7 @@ const start = async () => {
     ])
     bot.on('message', async msg => {
         console.log(msg)
-        const text = msg.text;
+        const text = msg.text;  
         const chatId = msg.chat.id;
         const messageId = msg.message_id;
         const isBot = msg.from.is_bot;
