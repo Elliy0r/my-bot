@@ -17,6 +17,7 @@
     "pg": "^8.13.1",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.5",
+    "tiktok-api": "^0.4.1",
     "tiktok-scraper": "^1.4.36",
     "ytdl-core": "^4.11.5"
   }
